@@ -1,0 +1,8 @@
+langchain
+python-dotenv
+# openai
+# tiktoken
+# langchain-openai
+streamlit
+groq
+langsmith
