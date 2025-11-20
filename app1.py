@@ -40,6 +40,53 @@ st.subheader("🧩 Column Cleaning Options (editable table)")
 
 cfg_df = default_config(prof)
 edited = st.data_editor(cfg_df, use_container_width=True, num_rows="fixed", hide_index=True)
+#aarif
+# -------------------------------------
+# Global / Interdependent Business Rules
+# -------------------------------------
+import pandas as pd
+
+sample_global = pd.DataFrame([
+    {"id": "example_age_gender", "condition": "Age > 30 and Gender == 'M'", "apply_order": 1, "active": True, "description": "Male patients older than 30"},
+    {"id": "admission_after_dob", "condition": "`Admission Date` >= `DOB`", "apply_order": 2, "active": True, "description": "Admission must be on/after DOB"},
+])
+
+st.markdown("### 🔗 Business / Interdependent Conditions")
+st.write("Define row-level conditions referencing multiple columns (use backticks for columns with spaces).")
+
+# Show example rules for user reference (not editable)
+with st.expander("📘 Example rules (click to view)"):
+    st.dataframe(sample_global, use_container_width=True)
+
+# Initialize session-state table ONLY on first run
+if "global_conditions" not in st.session_state:
+    st.session_state.global_conditions = pd.DataFrame(
+        columns=["id", "condition", "apply_order", "active", "description"]
+    )
+
+# Editable table
+global_conds = st.data_editor(
+    st.session_state.global_conditions,
+    use_container_width=True,
+    num_rows="dynamic",
+    hide_index=False,
+    column_config={
+        "id": st.column_config.TextColumn("id", help="Rule ID (unique)"),
+        "condition": st.column_config.TextColumn("condition", help="Pandas query expression"),
+        "apply_order": st.column_config.NumberColumn("apply_order", help="Order to apply rule"),
+        "active": st.column_config.CheckboxColumn("active", help="Toggle rule on/off"),
+        "description": st.column_config.TextColumn("description", help="Optional note")
+    },
+)
+
+# Save back if table is valid
+if isinstance(global_conds, pd.DataFrame):
+    try:
+        st.session_state.global_conditions = global_conds.sort_values("apply_order").reset_index(drop=True)
+    except Exception:
+        st.session_state.global_conditions = global_conds
+
+#aarifends
 
 # preview
 if st.button("🧪 Preview cleaning (apply in-session)"):
@@ -60,7 +107,15 @@ groq_api_key = os.getenv("GROQ_API_KEY")
 model = st.selectbox("Model", options=["compound-beta", "compound-beta-mini", "llama3-70b-8192"], index=0)
 
 col_cfg_json = edited.to_json(orient="records")
-global_cfg_json = json.dumps(st.session_state.get("global_conditions", []))
+
+gc = st.session_state.get("global_conditions")
+
+if isinstance(gc, pd.DataFrame):
+    global_cfg_json = gc.to_json(orient="records")
+else:
+    # fallback if something unexpected is stored
+    global_cfg_json = json.dumps(gc or [])
+
 
 if st.button("🔮 Generate code with Groq (via LangChain wrapper)"):
     if not groq_api_key:
